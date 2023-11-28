@@ -2,15 +2,33 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#define LINHAS 17
-#define COLUNAS 26
+#define ROWS 17
+#define COLS 26
 #define COLOR_TITLE "\x1b[33m"
 #define COLOR_PLAYER1 "\x1b[34m"
 #define COLOR_PLAYER2 "\x1b[31m"
 #define COLOR_RESET   "\x1b[0m"
 
+typedef struct {
+    char type[3];
+    int cost;
+    int health;
+} Building;
+
+typedef struct {
+    char type;
+    int cost;
+    int health;
+    int attackPower;
+};
+
+typedef struct {
+    Building build;
+    
+} Base;
+
 // Estrutura do tabuleiro
-char tabuleiro[LINHAS][COLUNAS];
+char tabuleiro[ROWS][COLS];
 
 void menu() {
     printf(COLOR_TITLE "         ___ . .  _\n");
@@ -33,31 +51,50 @@ void menu() {
 }
 
 // Função para inicializar o tabuleiro (preenchendo com espaços em branco)
-void inicializarTabuleiro() {
-    for (int i = 0; i < LINHAS; i++) {
-        for (int j = 0; j < COLUNAS; j++) {
+void initializeBoard() {
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
             tabuleiro[i][j] = ' ';
         }
     }
 }
 
 // Função para imprimir o tabuleiro
-void imprimirTabuleiro() {
+void printBoard() {
     printf("  ");
-    for (int j = 0; j < COLUNAS; j++) {
+    for (int j = 0; j < COLS; j++) {
         printf("  %c", 'A' + j);
     }
     printf("\n");
 
-    for (int i = 0; i < LINHAS; i++) {
+    for (int i = 0; i < ROWS; i++) {
         printf("%2d ", i + 1);
-        for (int j = 0; j < COLUNAS; j++) {
+        for (int j = 0; j < COLS; j++) {
             printf("[");
             printf("%c", tabuleiro[i][j]);
             printf("]");
         }
         printf("\n");
     }
+}
+void addStructure() {
+    char tipo;
+    int linha, coluna;
+
+    printf("Escolha o tipo de estrutura (M para Mina, B para Barraca): ");
+    scanf_s(" %c", &tipo);
+
+    printf("Escolha a linha (1 a 17): ");
+    scanf_s("%d", &linha);
+    printf("Escolha a coluna (A a Z): ");
+    char colunaChar;
+    scanf_s(" %c", &colunaChar);
+
+    // Convertendo a letra da coluna para um índice (A=0, B=1, ..., Z=25)
+    int colunaIndex = colunaChar - 'A';
+
+    // Atualizando o tabuleiro
+    tabuleiro[linha - 1][colunaIndex] = tipo;
 }
 
 int main() {
@@ -68,8 +105,9 @@ int main() {
     switch (option) {
     case 1:
         system("cls");
-        inicializarTabuleiro();
-        imprimirTabuleiro();
+        initializeBoard();
+        printBoard();
+        break;
     case 2:
 
         break;
