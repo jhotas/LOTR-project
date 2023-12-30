@@ -9,12 +9,14 @@
 #define COLOR_PLAYER2 "\x1b[31m"
 #define COLOR_RESET   "\x1b[0m"
 
+// Estrutura para construcoes
 typedef struct {
     char type[3];
     int cost;
     int health;
 } Building;
 
+// Estrutura para unidades
 typedef struct {
     char type;
     int cost;
@@ -22,6 +24,7 @@ typedef struct {
     int attackPower;
 } Unit;
 
+// Estruturas para bases
 typedef struct {
     Building build;
 } Base;
@@ -35,6 +38,8 @@ typedef enum {
 char tabuleiro[ROWS][COLS];
 
 Player currentPlayer = PLAYER1;
+int castarCoinsPlayer1 = 100;
+int castarCoinsPlayer2 = 100;
 
 // Função para alterar o jogador
 void switchPlayer() {
@@ -43,6 +48,61 @@ void switchPlayer() {
 
 Base basePlayer1;
 Base basePlayer2;
+
+void buildBuilding(Building *building) {
+    int linha, coluna;
+
+    printf("Escolha a linha (1 a 17): ");
+    scanf_s("%d", &linha);
+    printf("Escolha a coluna (A a Z): ");
+    char colunaChar;
+    scanf_s(" %c", &colunaChar);
+
+    int colunaIndex = colunaChar - 'A';
+
+    // Verifica se a posicao e valida
+    if (linha < 1 || linha > ROWS || colunaIndex < 0 || colunaIndex + strlen(building->type) > COLS) {
+        printf("Posicao invalida. Tente novamente.\n");
+        return;
+    }
+
+    // Verifica se as celulas estao livres
+    for (int i = 0; i < strlen(building->type); i++) {
+        if(tabuleiro[linha - 1][colunaIndex + i] != ' ') {
+            printf("Nao e possivel construir %s nessa posicao. Tente novamente.\n", building->type);
+            return;
+        }
+    }
+
+    // Verifica se o jogador tem moedas suficientes para construir
+    if ((currentPlayer == PLAYER1 && castarCoinsPlayer1 < building->cost) || (currentPlayer == PLAYER2 && castarCoinsPlayer2 < building->cost)) {
+        printf("Moedas insuficientes para construir %s.\n", building->type);
+        return;
+    }
+
+    // Atualiza o tabuleiro
+    for (int i = 0; i < strlen(building->type); i++) {
+        tabuleiro[linha - 1][colunaIndex + i] = building->type[i];
+    }
+
+    // Atualiza as moedas do jogador
+    if (currentPlayer == PLAYER1) {
+        castarCoinsPlayer1 -= building->cost;
+    } else {
+        castarCoinsPlayer2 -= building->cost;
+    }
+
+    printf("%s construído com sucesso!\n", building->type);
+}
+
+Building mina1 = { "SS" , 20, 50 };
+Building mina2 = { "EE", 20, 50 };
+Building barraca1 = { "RR", 25, 70 };
+Building barraca2 = { "II", 25, 70 };
+Building estabulo1 = { "LL", 25, 70 };
+Building estabulo2 = { "MK", 25, 70 };
+Building arsenal1 = { "GF", 25, 70 };
+Building arsenal2 = { "DF", 25, 70 };
 
 void menu() {
     printf(COLOR_TITLE "         ___ . .  _\n");
@@ -119,10 +179,6 @@ void addStructure() {
     tabuleiro[linha - 1][colunaIndex] = tipo;
 }
 
-void buildBuilding() {
-    // Implementar código
-}
-
 void attackWithUnit() {
     // Implementar código
 }
@@ -136,19 +192,30 @@ void playerTurn() {
 
     do {
         printBoard();
-        printf("Jogador %d, escolha sua acao:\n", currentPlayer + 1);
+        printf("\nMoedas do jogador 1: %d\n", castarCoinsPlayer1);
+        printf("Moedas do jogador 2: %d\n", castarCoinsPlayer2);
+        printf("\nJogador %d, escolha sua acao:\n", currentPlayer + 1);
         printf("(1) Construir\n");
         printf("(2) Selecionar\n");
         printf("(3) Encerrar turno\n");
+        printf("(4) Sair do jogo e salvar\n");
         scanf_s("%d", &action);
 
         switch (action) {
             case 1:
-                printf("Escolha qual construcao deseja colocar:\n");
-                printf("(1) Mina\n");
-                printf("(2) Barraca\n");
-                printf("(3) Estabulo\n");
-                printf("(4) Arsenal\n");
+                int choice;
+                printf("Jogador %d, voce tem %d moedas.\n", currentPlayer + 1, (currentPlayer == PLAYER1 ? castarCoinsPlayer1 : castarCoinsPlayer2));
+                printf("Escolha a construcao que deseja construir:\n");
+                printf("(1) Mina (20 Castar coins)\n");
+                printf("(2) Barraca (25 Castar coins)\n");
+                printf("(3) Estabulo (25 Castar coins)\n");
+                printf("(4) Arsenal (30 Castar coins)\n");
+               
+                scanf_s("%d", &choice);
+
+                if (choice == 1) {
+                    buildBuilding(&mina1);
+                }
                 break;
             case 2:
 
@@ -156,6 +223,8 @@ void playerTurn() {
             case 3:
                 printf("Turno encerrado!\n");
                 break;
+            case 4:
+                printf("Salvando...\n");
             default:
                 printf("Opçao invalida. Tente novamente.\n");
         }
