@@ -20,15 +20,28 @@ typedef struct {
     int cost;
     int health;
     int attackPower;
-};
+} Unit;
 
 typedef struct {
     Building build;
-    
 } Base;
+
+typedef enum {
+    PLAYER1,
+    PLAYER2
+} Player;
 
 // Estrutura do tabuleiro
 char tabuleiro[ROWS][COLS];
+
+Player currentPlayer = PLAYER1;
+
+void switchPlayer() {
+    currentPlayer = (currentPlayer == PLAYER1) ? PLAYER2 : PLAYER1;
+}
+
+Base basePlayer1;
+Base basePlayer2;
 
 void menu() {
     printf(COLOR_TITLE "         ___ . .  _\n");
@@ -70,9 +83,17 @@ void printBoard() {
     for (int i = 0; i < ROWS; i++) {
         printf("%2d ", i + 1);
         for (int j = 0; j < COLS; j++) {
-            printf("[");
-            printf("%c", tabuleiro[i][j]);
-            printf("]");
+            if (tabuleiro[i][j] == 'G') {
+                printf(COLOR_PLAYER1 "[G]" COLOR_RESET);
+            }
+            else if (tabuleiro[i][j] == 'M') {
+                printf(COLOR_PLAYER2 "[M]" COLOR_RESET);
+            }
+            else {
+                printf("[");
+                printf("%c", tabuleiro[i][j]);
+                printf("]");
+            }
         }
         printf("\n");
     }
@@ -97,6 +118,59 @@ void addStructure() {
     tabuleiro[linha - 1][colunaIndex] = tipo;
 }
 
+void placeBase() {
+    printf("Jogador %d, coloque sua base no tabuleiro.\n", currentPlayer + 1);
+
+    int linha, coluna;
+    printf("Escolha a linha (1 a 17): ");
+    scanf_s("%d", &linha);
+    printf("Escolha a coluna (A a Z): ");
+    char colunaChar;
+    scanf_s(" %c", &colunaChar);
+
+    int colunaIndex = colunaChar - 'A';
+
+    tabuleiro[linha - 1][colunaIndex] = (currentPlayer == PLAYER1 ? 'G' : 'M');
+
+    for (int i = 1; i < 4; i++) {
+        colunaIndex++;
+        tabuleiro[linha - 1][colunaIndex] = (currentPlayer == PLAYER1 ? 'G' : 'M');
+    }
+
+    switchPlayer();
+    system("cls");
+
+    printf("Jogador %d, coloque sua base no tabuleiro.\n", currentPlayer + 1);
+
+    int linha2, coluna2;
+    printf("Escolha a linha (1 a 17): ");
+    scanf_s("%d", &linha2);
+    printf("Escolha a coluna (A a Z): ");
+    char colunaChar2;
+    scanf_s(" %c", &colunaChar2);
+
+    int colunaIndex2 = colunaChar2 - 'A';
+
+    tabuleiro[linha2 - 1][colunaIndex2] = (currentPlayer == PLAYER1 ? 'G' : 'M');
+
+    for (int i = 1; i < 4; i++) {
+        colunaIndex2++;
+        tabuleiro[linha2 - 1][colunaIndex2] = (currentPlayer == PLAYER1 ? 'G' : 'M');
+    }
+}
+
+void initializeBase(Base *base, char type) {
+    base->build.type[0] = type;
+    base->build.type[1] = type;
+    base->build.type[2] = type;
+    base->build.cost = 0;
+    base->build.health = 100;
+}
+
+void destroyBase(Base *base) {
+    initializeBase(base, ' ');
+}
+
 int main() {
     menu();
     
@@ -106,6 +180,11 @@ int main() {
     case 1:
         system("cls");
         initializeBoard();
+        initializeBase(&basePlayer1, 'G');
+        initializeBase(&basePlayer2, 'M');
+        printBoard();
+        placeBase();
+        system("cls");
         printBoard();
         break;
     case 2:
