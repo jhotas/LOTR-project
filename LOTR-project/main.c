@@ -36,6 +36,7 @@ char tabuleiro[ROWS][COLS];
 
 Player currentPlayer = PLAYER1;
 
+// FunÃ§Ã£o para alterar o jogador
 void switchPlayer() {
     currentPlayer = (currentPlayer == PLAYER1) ? PLAYER2 : PLAYER1;
 }
@@ -63,7 +64,7 @@ void menu() {
     printf("(1) New game\n(2) Load game\n(3) Settings\n(4) Exit\n");
 }
 
-// Função para inicializar o tabuleiro (preenchendo com espaços em branco)
+// FunÃ§Ã£o para inicializar o tabuleiro (preenchendo com espaï¿½os em branco)
 void initializeBoard() {
     for (int i = 0; i < ROWS; i++) {
         for (int j = 0; j < COLS; j++) {
@@ -72,7 +73,7 @@ void initializeBoard() {
     }
 }
 
-// Função para imprimir o tabuleiro
+// FunÃ§Ã£o para imprimir o tabuleiro
 void printBoard() {
     printf("  ");
     for (int j = 0; j < COLS; j++) {
@@ -111,11 +112,54 @@ void addStructure() {
     char colunaChar;
     scanf_s(" %c", &colunaChar);
 
-    // Convertendo a letra da coluna para um índice (A=0, B=1, ..., Z=25)
+    // Convertendo a letra da coluna para um ï¿½ndice (A=0, B=1, ..., Z=25)
     int colunaIndex = colunaChar - 'A';
 
     // Atualizando o tabuleiro
     tabuleiro[linha - 1][colunaIndex] = tipo;
+}
+
+void buildBuilding() {
+    // Implementar cÃ³digo
+}
+
+void attackWithUnit() {
+    // Implementar cÃ³digo
+}
+
+void moveUnit() {
+    // Implementar cÃ³digo
+}
+
+void playerTurn() {
+    int action;
+
+    do {
+        printBoard();
+        printf("Jogador %d, escolha sua acao:\n", currentPlayer + 1);
+        printf("(1) Construir\n");
+        printf("(2) Selecionar\n");
+        printf("(3) Encerrar turno\n");
+        scanf_s("%d", &action);
+
+        switch (action) {
+            case 1:
+                printf("Escolha qual construcao deseja colocar:\n");
+                printf("(1) Mina\n");
+                printf("(2) Barraca\n");
+                printf("(3) Estabulo\n");
+                printf("(4) Arsenal\n");
+                break;
+            case 2:
+
+                break;
+            case 3:
+                printf("Turno encerrado!\n");
+                break;
+            default:
+                printf("OpÃ§ao invalida. Tente novamente.\n");
+        }
+    } while (action != 3);
 }
 
 void placeBase() {
@@ -136,33 +180,13 @@ void placeBase() {
         colunaIndex++;
         tabuleiro[linha - 1][colunaIndex] = (currentPlayer == PLAYER1 ? 'G' : 'M');
     }
-
-    switchPlayer();
-    system("cls");
-
-    printf("Jogador %d, coloque sua base no tabuleiro.\n", currentPlayer + 1);
-
-    int linha2, coluna2;
-    printf("Escolha a linha (1 a 17): ");
-    scanf_s("%d", &linha2);
-    printf("Escolha a coluna (A a Z): ");
-    char colunaChar2;
-    scanf_s(" %c", &colunaChar2);
-
-    int colunaIndex2 = colunaChar2 - 'A';
-
-    tabuleiro[linha2 - 1][colunaIndex2] = (currentPlayer == PLAYER1 ? 'G' : 'M');
-
-    for (int i = 1; i < 4; i++) {
-        colunaIndex2++;
-        tabuleiro[linha2 - 1][colunaIndex2] = (currentPlayer == PLAYER1 ? 'G' : 'M');
-    }
 }
 
 void initializeBase(Base *base, char type) {
     base->build.type[0] = type;
     base->build.type[1] = type;
     base->build.type[2] = type;
+    base->build.type[3] = type;
     base->build.cost = 0;
     base->build.health = 100;
 }
@@ -183,9 +207,22 @@ int main() {
         initializeBase(&basePlayer1, 'G');
         initializeBase(&basePlayer2, 'M');
         printBoard();
+
         placeBase();
         system("cls");
         printBoard();
+
+        switchPlayer();
+        placeBase();
+        system("cls");
+        printBoard();
+        switchPlayer();
+
+        while (true) {
+            playerTurn();
+            switchPlayer();
+            system("cls");
+        }
         break;
     case 2:
 
