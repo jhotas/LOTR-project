@@ -14,6 +14,8 @@ typedef struct {
     char type[3];
     int cost;
     int health;
+    int coinGeneration;
+    int owner;
 } Building;
 
 // Estrutura para unidades
@@ -29,6 +31,7 @@ typedef struct {
     Building build;
 } Base;
 
+// Jogadores
 typedef enum {
     PLAYER1,
     PLAYER2
@@ -36,7 +39,9 @@ typedef enum {
 
 // Estrutura do tabuleiro
 char tabuleiro[ROWS][COLS];
+int tabuleiroOwners[ROWS][COLS];
 
+// Inicia os coins para os jogadores
 Player currentPlayer = PLAYER1;
 int castarCoinsPlayer1 = 100;
 int castarCoinsPlayer2 = 100;
@@ -46,11 +51,31 @@ void switchPlayer() {
     currentPlayer = (currentPlayer == PLAYER1) ? PLAYER2 : PLAYER1;
 }
 
+// Gera a base dos jogadores
 Base basePlayer1;
 Base basePlayer2;
 
+// Verifica se e possivel construir em determinada posicao
+bool canBuildBuilding(int linha, int colunaIndex, const Building* building) {
+    // Verifica se a posição é válida
+    if (linha < 1 || linha > ROWS || colunaIndex < 0 || colunaIndex + strlen(building->type) > COLS) {
+        printf("Posicao invalida. Tente novamente.\n");
+        return false;
+    }
+
+    // Verifica se as células estão livres
+    for (int i = 0; i < strlen(building->type); i++) {
+        if (tabuleiro[linha - 1][colunaIndex + i] != ' ') {
+            printf("Nao e possivel construir %s nessa posicao. Tente novamente.\n", building->type);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void buildBuilding(Building *building) {
-    int linha, coluna;
+    int linha;
 
     printf("Escolha a linha (1 a 17): ");
     scanf_s("%d", &linha);
@@ -60,18 +85,8 @@ void buildBuilding(Building *building) {
 
     int colunaIndex = colunaChar - 'A';
 
-    // Verifica se a posicao e valida
-    if (linha < 1 || linha > ROWS || colunaIndex < 0 || colunaIndex + strlen(building->type) > COLS) {
-        printf("Posicao invalida. Tente novamente.\n");
+    if (!canBuildBuilding(linha, colunaIndex, building)) {
         return;
-    }
-
-    // Verifica se as celulas estao livres
-    for (int i = 0; i < strlen(building->type); i++) {
-        if(tabuleiro[linha - 1][colunaIndex + i] != ' ') {
-            printf("Nao e possivel construir %s nessa posicao. Tente novamente.\n", building->type);
-            return;
-        }
     }
 
     // Verifica se o jogador tem moedas suficientes para construir
@@ -83,7 +98,11 @@ void buildBuilding(Building *building) {
     // Atualiza o tabuleiro
     for (int i = 0; i < strlen(building->type); i++) {
         tabuleiro[linha - 1][colunaIndex + i] = building->type[i];
+        tabuleiroOwners[linha - 1][colunaIndex + i] = (currentPlayer == PLAYER1) ? 1 : 2;
     }
+
+    // Define o proprietario da construcao
+    building->owner = (currentPlayer == PLAYER1) ? 1 : 2;
 
     // Atualiza as moedas do jogador
     if (currentPlayer == PLAYER1) {
@@ -95,14 +114,15 @@ void buildBuilding(Building *building) {
     printf("%s construído com sucesso!\n", building->type);
 }
 
-Building mina1 = { "SS" , 20, 50 };
-Building mina2 = { "EE", 20, 50 };
-Building barraca1 = { "RR", 25, 70 };
-Building barraca2 = { "II", 25, 70 };
-Building estabulo1 = { "LL", 25, 70 };
-Building estabulo2 = { "MK", 25, 70 };
-Building arsenal1 = { "GF", 25, 70 };
-Building arsenal2 = { "DF", 25, 70 };
+// Gera as construcoes
+Building mina1 = { "SS" , 20, 50, 5, 0 };
+Building mina2 = { "EE", 20, 50, 5, 0 };
+Building barraca1 = { "RR", 25, 70, 0, 0 };
+Building barraca2 = { "II", 25, 70, 0, 0 };
+Building estabulo1 = { "LL", 25, 70, 0, 0 };
+Building estabulo2 = { "MK", 25, 70, 0, 0 };
+Building arsenal1 = { "GF", 25, 70, 0, 0 };
+Building arsenal2 = { "DF", 25, 70, 0, 0 };
 
 void menu() {
     printf(COLOR_TITLE "         ___ . .  _\n");
@@ -144,39 +164,32 @@ void printBoard() {
     for (int i = 0; i < ROWS; i++) {
         printf("%2d ", i + 1);
         for (int j = 0; j < COLS; j++) {
-            if (tabuleiro[i][j] == 'G') {
+            char currentCell = tabuleiro[i][j];
+
+            // Verifica o tipo de construção e aplica a cor apropriada
+            if (currentCell == 'G') {
                 printf(COLOR_PLAYER1 "[G]" COLOR_RESET);
             }
-            else if (tabuleiro[i][j] == 'M') {
+            else if (currentCell == 'M') {
                 printf(COLOR_PLAYER2 "[M]" COLOR_RESET);
+            }
+            else if (currentCell == 'S' || currentCell == 'E' || currentCell == 'R' || currentCell == 'I' || currentCell == 'L' || currentCell == 'K' || currentCell == 'F') {
+                // Verifica o jogador e aplica a cor correspondente
+                if (tabuleiroOwners[i][j] == 1) {
+                    printf(COLOR_PLAYER1 "[%c]" COLOR_RESET, currentCell);
+                }
+                else {
+                    printf(COLOR_PLAYER2 "[%c]" COLOR_RESET, currentCell);
+                }
             }
             else {
                 printf("[");
-                printf("%c", tabuleiro[i][j]);
+                printf("%c", currentCell);
                 printf("]");
             }
         }
         printf("\n");
     }
-}
-void addStructure() {
-    char tipo;
-    int linha, coluna;
-
-    printf("Escolha o tipo de estrutura (M para Mina, B para Barraca): ");
-    scanf_s(" %c", &tipo);
-
-    printf("Escolha a linha (1 a 17): ");
-    scanf_s("%d", &linha);
-    printf("Escolha a coluna (A a Z): ");
-    char colunaChar;
-    scanf_s(" %c", &colunaChar);
-
-    // Convertendo a letra da coluna para um �ndice (A=0, B=1, ..., Z=25)
-    int colunaIndex = colunaChar - 'A';
-
-    // Atualizando o tabuleiro
-    tabuleiro[linha - 1][colunaIndex] = tipo;
 }
 
 void attackWithUnit() {
@@ -188,6 +201,22 @@ void moveUnit() {
 }
 
 void playerTurn() {
+    // Gera coins para os jogadores dependendo de quantas minas tiverem no tabuleiro
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            if (tabuleiro[i][j] == 'S' && tabuleiro[i][j + 1] == 'S') {
+                if (currentPlayer == PLAYER1) {
+                    castarCoinsPlayer1 += mina1.coinGeneration;
+                }
+            }
+            else if (tabuleiro[i][j] == 'E' && tabuleiro[i][j + 1] == 'E') {
+                if (currentPlayer == PLAYER2) {
+                    castarCoinsPlayer2 += mina2.coinGeneration;
+                }
+            }
+        }
+    }
+    
     int action;
 
     do {
@@ -214,7 +243,20 @@ void playerTurn() {
                 scanf_s("%d", &choice);
 
                 if (choice == 1) {
-                    buildBuilding(&mina1);
+                    (currentPlayer == PLAYER1) ? buildBuilding(&mina1) : buildBuilding(&mina2);
+                }
+                else if (choice == 2) {
+                    (currentPlayer == PLAYER1) ? buildBuilding(&barraca1) : buildBuilding(&barraca2);
+                }
+                else if (choice == 3) {
+                    (currentPlayer == PLAYER1) ? buildBuilding(&estabulo1) : buildBuilding(&estabulo2);
+                }
+                else if (choice == 4) {
+                    (currentPlayer == PLAYER1) ? buildBuilding(&arsenal1) : buildBuilding(&arsenal2);
+                }
+                else {
+                    printf("Digite um valor valido. Tente novamente.");
+                    return;
                 }
                 break;
             case 2:
@@ -255,7 +297,6 @@ void initializeBase(Base *base, char type) {
     base->build.type[0] = type;
     base->build.type[1] = type;
     base->build.type[2] = type;
-    base->build.type[3] = type;
     base->build.cost = 0;
     base->build.health = 100;
 }
