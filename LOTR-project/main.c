@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -20,10 +21,16 @@ typedef struct {
 
 // Estrutura para unidades
 typedef struct {
-    char type;
+    char type[2];
     int cost;
     int health;
     int attackPower;
+    int range;
+    int move;
+    int moveCost;
+    int owner;
+    int row;
+    int col;
 } Unit;
 
 // Estruturas para bases
@@ -40,6 +47,7 @@ typedef enum {
 // Estrutura do tabuleiro
 char tabuleiro[ROWS][COLS];
 int tabuleiroOwners[ROWS][COLS];
+Unit tabuleiroUnits[ROWS][COLS];
 
 // Inicia os coins para os jogadores
 Player currentPlayer = PLAYER1;
@@ -52,8 +60,7 @@ void switchPlayer() {
 }
 
 // Gera a base dos jogadores
-Base basePlayer1;
-Base basePlayer2;
+Base bases[2];
 
 // Verifica se e possivel construir em determinada posicao
 bool canBuildBuilding(int linha, int colunaIndex, const Building* building) {
@@ -111,7 +118,15 @@ void buildBuilding(Building *building) {
         castarCoinsPlayer2 -= building->cost;
     }
 
-    printf("%s construído com sucesso!\n", building->type);
+    printf("%s construida com sucesso!\n", building->type);
+}
+
+void destroyBuilding(int linha, int colunaIndex) {
+    printf("Construcao destruida!\n");
+    tabuleiro[linha - 1][colunaIndex - 1] = ' ';
+    tabuleiro[linha - 1][colunaIndex] = ' ';
+    tabuleiro[linha - 1][colunaIndex + 1] = ' ';
+    tabuleiroOwners[linha - 1][colunaIndex] = 0;
 }
 
 // Gera as construcoes
@@ -123,6 +138,416 @@ Building estabulo1 = { "LL", 25, 70, 0, 0 };
 Building estabulo2 = { "MK", 25, 70, 0, 0 };
 Building arsenal1 = { "GF", 25, 70, 0, 0 };
 Building arsenal2 = { "DF", 25, 70, 0, 0 };
+
+void recruitUnit(const char* unitType, int linha, int colunaIndex) {
+    Unit recruitedUnit;
+    strcpy(recruitedUnit.type, unitType);
+
+    // Define os valores de custo, saúde, poder de ataque e alcance com base no tipo de unidade
+    if ((currentPlayer == PLAYER1 && strcmp(unitType, "G") == 0) ||
+        (currentPlayer == PLAYER2 && strcmp(unitType, "OW") == 0)) {
+        recruitedUnit.cost = 10;
+        recruitedUnit.health = 30;
+        recruitedUnit.attackPower = 5;
+        recruitedUnit.move = 3;
+        recruitedUnit.moveCost = 2;
+        recruitedUnit.owner = (currentPlayer == PLAYER1) ? 1 : 2;
+        recruitedUnit.range = 1;  // Alcance de 1 célula
+        recruitedUnit.row = linha - 1;
+        recruitedUnit.col = colunaIndex;
+    }
+    else if ((currentPlayer == PLAYER1 && strcmp(unitType, "SK") == 0) ||
+        (currentPlayer == PLAYER2 && strcmp(unitType, "W") == 0)) {
+        recruitedUnit.cost = 15;
+        recruitedUnit.health = 40;
+        recruitedUnit.attackPower = 7;
+        recruitedUnit.move = 4;
+        recruitedUnit.moveCost = 1;
+        recruitedUnit.owner = (currentPlayer == PLAYER1) ? 1 : 2;
+        recruitedUnit.range = 2;  // Alcance de 2 células
+        recruitedUnit.row = linha - 1;
+        recruitedUnit.col = colunaIndex;
+    }
+    else if ((currentPlayer == PLAYER1 && strcmp(unitType, "T") == 0) ||
+        (currentPlayer == PLAYER2 && strcmp(unitType, "ST") == 0)) {
+        recruitedUnit.cost = 20;
+        recruitedUnit.health = 20;
+        recruitedUnit.attackPower = 10;
+        recruitedUnit.move = 2;
+        recruitedUnit.moveCost = 3;
+        recruitedUnit.owner = (currentPlayer == PLAYER1) ? 1 : 2;
+        recruitedUnit.range = 3;  // Alcance de 3 células
+        recruitedUnit.row = linha - 1;
+        recruitedUnit.col = colunaIndex;
+    }
+    else {
+        printf("Tipo de unidade desconhecido!\n");
+        return;
+    }
+
+    // Verifique se o jogador tem moedas suficientes para recrutar
+    if ((currentPlayer == PLAYER1 && castarCoinsPlayer1 < recruitedUnit.cost) ||
+        (currentPlayer == PLAYER2 && castarCoinsPlayer2 < recruitedUnit.cost)) {
+        printf("Moedas insuficientes para recrutar a unidade %s.\n", unitType);
+        return;
+    }
+
+    // Atualize as moedas do jogador
+    if (currentPlayer == PLAYER1) {
+        castarCoinsPlayer1 -= recruitedUnit.cost;
+    }
+    else {
+        castarCoinsPlayer2 -= recruitedUnit.cost;
+    }
+
+    // Adicione a unidade recrutada ao tabuleiro
+    if (strlen(unitType) == 1) {
+        // Se já houver uma unidade, avança para a próxima coluna
+        while (tabuleiro[linha - 1][colunaIndex] != ' ') {
+            colunaIndex++;
+        }
+        tabuleiro[linha - 1][colunaIndex] = unitType[0];
+    }
+    else if (strlen(unitType) == 2) {
+        // Se já houver uma unidade, avança para a próxima coluna
+        while (tabuleiro[linha - 1][colunaIndex] != ' ' || tabuleiro[linha - 1][colunaIndex + 1] != ' ') {
+            colunaIndex++;
+        }
+        tabuleiro[linha - 1][colunaIndex] = unitType[0];    
+        tabuleiro[linha - 1][colunaIndex + 1] = unitType[1];
+    }
+
+    // Adicione a unidade recrutada ao tabuleiroUnits
+    tabuleiroUnits[linha - 1][colunaIndex] = recruitedUnit;
+
+    printf("Unidade %s recrutada com sucesso!\n", unitType);
+}
+
+void moveUnit(int linha, int colunaIndex) {
+    char selectedUnit = tabuleiro[linha - 1][colunaIndex];
+    int selectedUnitRange = tabuleiroUnits[linha - 1][colunaIndex].move;
+
+    // Verifique se a posição é válida
+    if (linha < 1 || linha > ROWS || colunaIndex < 0 || colunaIndex >= COLS) {
+        printf("Posicao invalida. Tente novamente.\n");
+        return;
+    }
+
+    //// Verifique se a unidade pertence ao jogador atual
+    //if ((currentPlayer == PLAYER1 && tabuleiroOwners[linha - 1][colunaIndex] != 1) ||
+    //    (currentPlayer == PLAYER2 && tabuleiroOwners[linha - 1][colunaIndex] != 2)) {
+    //    printf("Esta unidade nao pertence ao jogador atual. Tente novamente.\n");
+    //    return;
+    //}
+
+    // Mova a unidade para a nova posição
+    int newLinha, newColunaIndex;
+    printf("Escolha a nova linha (1 a 17): ");
+    scanf_s(" %d", &newLinha);
+    printf("Escolha a nova coluna (A a Z): ");
+    char newColunaChar;
+    scanf_s(" %c", &newColunaChar);
+
+    newColunaIndex = newColunaChar - 'A';
+
+    // Verificar se a nova posição escolhida é válida
+    if (((newColunaIndex - colunaIndex) > selectedUnitRange) ||
+        ((newLinha - (linha - 1)) > selectedUnitRange) ||
+        (((newColunaIndex - colunaIndex) == 0) && ((newLinha - (linha - 1)) == 0))) {
+        printf("Movimento invalido. A unidade so pode se mover ate %d celulas em linha ou coluna.\n", selectedUnitRange);
+        return;
+    }
+
+    // Verificar se a nova posição está livre
+    if (tabuleiro[linha - 1][newColunaIndex] != ' ') {
+        printf("Nova posicao ocupada. Tente novamente.\n");
+        return;
+    }
+
+    // Verificar se o jogador tem moedas suficientes para mover
+    if ((currentPlayer == PLAYER1 && castarCoinsPlayer1 < tabuleiroUnits[linha - 1][colunaIndex].moveCost) ||
+        (currentPlayer == PLAYER2 && castarCoinsPlayer2 < tabuleiroUnits[linha - 1][colunaIndex].moveCost)) {
+        printf("Moedas insuficientes para mover a unidade.\n");
+        return;
+    }
+
+    // Atualizar o tabuleiro e a posse do tabuleiro
+    tabuleiro[linha - 1][newColunaIndex] = selectedUnit;
+    tabuleiro[linha - 1][colunaIndex] = ' ';
+    tabuleiroOwners[linha - 1][newColunaIndex] = tabuleiroOwners[linha - 1][colunaIndex];
+    tabuleiroOwners[linha - 1][colunaIndex] = 0;
+
+    // Atualizar moedas do jogador
+    if (currentPlayer == PLAYER1) {
+        castarCoinsPlayer1 -= tabuleiroUnits[linha - 1][colunaIndex].moveCost;
+    }
+    else {
+        castarCoinsPlayer2 -= tabuleiroUnits[linha - 1][colunaIndex].moveCost;
+    }
+
+    printf("Unidade movida com sucesso!\n");
+}
+
+void select(int linha, int colunaIndex) {
+    char selectedCell = tabuleiro[linha - 1][colunaIndex];
+    Building* selectedBuildingData = NULL;
+
+    if ((selectedCell == 'S' && (tabuleiro[linha - 1][colunaIndex + 1] == 'S' || tabuleiro[linha - 1][colunaIndex - 1] == 'S'))
+        || (selectedCell == 'E' && (tabuleiro[linha - 1][colunaIndex + 1] == 'E' || tabuleiro[linha - 1][colunaIndex - 1] == 'E'))
+        || (selectedCell == 'R' && (tabuleiro[linha - 1][colunaIndex + 1] == 'R' || tabuleiro[linha - 1][colunaIndex - 1] == 'R'))
+        || (selectedCell == 'I' && (tabuleiro[linha - 1][colunaIndex + 1] == 'I' || tabuleiro[linha - 1][colunaIndex - 1] == 'I'))
+        || (selectedCell == 'L' && (tabuleiro[linha - 1][colunaIndex + 1] == 'L' || tabuleiro[linha - 1][colunaIndex - 1] == 'L'))
+        || ((selectedCell == 'M' || selectedCell == 'K') && (tabuleiro[linha - 1][colunaIndex + 1] == 'K' || tabuleiro[linha - 1][colunaIndex - 1] == 'M'))
+        || ((selectedCell == 'G' || selectedCell == 'F') && (tabuleiro[linha - 1][colunaIndex + 1] == 'F' || tabuleiro[linha - 1][colunaIndex - 1] == 'G'))
+        || ((selectedCell == 'D' || selectedCell == 'F') && (tabuleiro[linha - 1][colunaIndex + 1] == 'F' || tabuleiro[linha - 1][colunaIndex - 1] == 'D'))) {
+        switch (selectedCell) {
+        case 'S':
+            selectedBuildingData = &mina1;
+            if (tabuleiro[linha - 1][colunaIndex + 1] == 'S' || tabuleiro[linha - 1][colunaIndex - 1] == 'S') {
+                if (currentPlayer == PLAYER1) {
+                    printf("Selecionou uma mina!\n");
+                    printf("Vida: %d\n", selectedBuildingData->health);
+                    printf("(D) Destruir\n");
+                    printf("(V) Voltar\n");
+
+                    char option;
+                    scanf_s(" %c", &option);
+
+                    if (option == 'D') {
+                        destroyBuilding(linha, colunaIndex);
+                    }
+                }
+                else {
+                    printf("Selecionou uma mina inimiga!\n");
+                    printf("Vida: %d\n", selectedBuildingData->health);
+                    printf("(V) Voltar\n");
+
+                    char option;
+                    scanf_s(" %c", &option);
+                }
+            }
+            break;
+        case 'E':
+            selectedBuildingData = &mina2;
+            if (currentPlayer == PLAYER2) {
+                printf("Selecionou uma mina!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(D) Destruir\n");
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+
+                if (option == 'D') {
+                    destroyBuilding(linha, colunaIndex);
+                }
+            }
+            else {
+                printf("Selecionou uma mina inimiga!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+            }
+            break;
+        case 'R':
+            selectedBuildingData = &barraca1;
+            if (currentPlayer == PLAYER1) {
+                printf("Selecionou uma barraca!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(R) Recrutar\n");
+                printf("(D) Destruir\n");
+                printf("(V) Voltar");
+
+                char option;
+                scanf_s(" %c", &option);
+
+                if (option == 'D') {
+                    destroyBuilding(linha, colunaIndex);
+                }
+                else if (option == 'R') {
+                    recruitUnit((currentPlayer == PLAYER1) ? "G" : "OW", linha + 1, colunaIndex);
+                }
+            }
+            else {
+                printf("Selecionou uma barraca inimiga!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+            }
+            break;
+        case 'I':
+            selectedBuildingData = &barraca2;
+            if (currentPlayer == PLAYER2) {
+                printf("Selecionou uma barraca!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(R) Recrutar\n");
+                printf("(D) Destruir\n");
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+
+                if (option == 'D') {
+                    destroyBuilding(linha, colunaIndex);
+                }
+                else if (option == 'R') {
+                    recruitUnit((currentPlayer == PLAYER1) ? "G" : "OW", linha, colunaIndex + 1);
+                }
+            }
+            else {
+                printf("Selecionou uma barraca inimiga!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+            }
+            break;
+        case 'L':
+            selectedBuildingData = &estabulo1;
+            if (currentPlayer == PLAYER1) {
+                printf("Selecionou um estabulo!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(R) Recrutar\n");
+                printf("(D) Destruir\n");
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+
+                if (option == 'D') {
+                    destroyBuilding(linha, colunaIndex);
+                }
+                else if (option == 'R') {
+                    recruitUnit((currentPlayer == PLAYER1) ? "SK" : "W", linha, colunaIndex + 1);
+                }
+            }
+            else {
+                printf("Selecionou um estabulo inimigo!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+            }
+            break;
+        case 'M':
+            selectedBuildingData = &estabulo2;
+            if (currentPlayer == PLAYER2) {
+                printf("Selecionou um estabulo!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(R) Recrutar\n");
+                printf("(D) Destruir\n");
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+
+                if (option == 'D') {
+                    destroyBuilding(linha, colunaIndex);
+                }
+                else if (option == 'R') {
+                    recruitUnit((currentPlayer == PLAYER1) ? "SK" : "W", linha, colunaIndex + 1);
+                }
+            }
+            else {
+                printf("Selecionou um estabulo inimigo!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+            }
+            break;
+        case 'G':
+            selectedBuildingData = &arsenal1;
+            if (currentPlayer == PLAYER1) {
+                printf("Selecionou um arsenal!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(R) Recrutar\n");
+                printf("(D) Destruir\n");
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+
+                if (option == 'D') {
+                    destroyBuilding(linha, colunaIndex);
+                }
+                else if (option == 'R') {
+                    recruitUnit((currentPlayer == PLAYER1) ? "T" : "ST", linha, colunaIndex + 1);
+                }
+            }
+            else {
+                printf("Selecionou um arsenal inimigo!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+            }
+            break;
+        case 'D':
+            selectedBuildingData = &arsenal2;
+            if (currentPlayer == PLAYER2) {
+                printf("Selecionou um arsenal!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(R) Recrutar\n");
+                printf("(D) Destruir\n");
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+
+                if (option == 'D') {
+                    destroyBuilding(linha, colunaIndex);
+                }
+                else if (option == 'R') {
+                    recruitUnit((currentPlayer == PLAYER1) ? "T" : "ST", linha, colunaIndex + 1);
+                }
+            }
+            else {
+                printf("Selecionou um arsenal inimigo!\n");
+                printf("Vida: %d\n", selectedBuildingData->health);
+                printf("(V) Voltar\n");
+
+                char option;
+                scanf_s(" %c", &option);
+            }
+            break;
+        default:
+            printf("Nao selecionou uma construcao!\n");
+            break;
+        }
+    } 
+    else {
+        Unit* selectedUnit = &tabuleiroUnits[linha - 1][colunaIndex];
+
+        printf("Vida: %d\n", selectedUnit->health);
+        printf("Poder de Ataque: %d\n", selectedUnit->attackPower);
+        printf("Alcance: %d\n", selectedUnit->range);
+        printf("Custo de Movimento: %d\n", selectedUnit->moveCost);
+        printf("(M) Mover\n");
+        printf("(A) Atacar\n");
+        printf("(V) Voltar\n");
+
+        char option;
+        scanf_s(" %c", &option);
+
+        switch (option) {
+        case 'M':
+            moveUnit(linha, colunaIndex);
+            break;
+        case 'A':
+            // Implementar lógica de ataque
+            break;
+        }
+    }
+}
 
 void menu() {
     printf(COLOR_TITLE "         ___ . .  _\n");
@@ -182,6 +607,15 @@ void printBoard() {
                     printf(COLOR_PLAYER2 "[%c]" COLOR_RESET, currentCell);
                 }
             }
+            else if (currentCell == 'G' || currentCell == 'SK' || currentCell == 'T' || currentCell == 'OW' || currentCell == 'W' || currentCell == 'ST') {
+                // Verifica a unidade e aplica a cor correspondente
+                if (tabuleiroUnits[i][j].owner == 1) {
+                    printf(COLOR_PLAYER1 "[%c]" COLOR_RESET, currentCell);
+                }
+                else {
+                    printf(COLOR_PLAYER2 "[%c]" COLOR_RESET, currentCell);
+                }
+            }
             else {
                 printf("[");
                 printf("%c", currentCell);
@@ -193,10 +627,6 @@ void printBoard() {
 }
 
 void attackWithUnit() {
-    // Implementar código
-}
-
-void moveUnit() {
     // Implementar código
 }
 
@@ -221,6 +651,9 @@ void playerTurn() {
 
     do {
         printBoard();
+        // Exibir informacoes sobre o jogo
+        printf("\nVida da base do Jogador 1: %d\n", bases[0].build.health);
+        printf("Vida da base do Jogador 2: %d\n", bases[1].build.health);
         printf("\nMoedas do jogador 1: %d\n", castarCoinsPlayer1);
         printf("Moedas do jogador 2: %d\n", castarCoinsPlayer2);
         printf("\nJogador %d, escolha sua acao:\n", currentPlayer + 1);
@@ -260,13 +693,31 @@ void playerTurn() {
                 }
                 break;
             case 2:
+                int linha, colunaIndex;
 
+                printf("Escolha a linha (1 a 17): ");
+                scanf_s("%d", &linha);
+                printf("Escolha a coluna (A a Z): ");
+                char colunaChar;
+                scanf_s(" %c", &colunaChar);
+                colunaIndex = colunaChar - 'A';
+
+                // Verificar se a posição escolhida é válida
+                if (linha < 1 || linha > ROWS || colunaIndex < 0 || colunaIndex >= COLS) {
+                    printf("Posicao invalida. Tente novamente.\n");
+                    break;
+                }
+
+                // Chamar a função para selecionar a construção
+                select(linha, colunaIndex);
                 break;
             case 3:
                 printf("Turno encerrado!\n");
                 break;
             case 4:
                 printf("Salvando...\n");
+                carregarJogo();
+                break;
             default:
                 printf("Opçao invalida. Tente novamente.\n");
         }
@@ -296,7 +747,7 @@ void placeBase() {
 void initializeBase(Base *base, char type) {
     base->build.type[0] = type;
     base->build.type[1] = type;
-    base->build.type[2] = type;
+    base->build.type[2] = '\0';
     base->build.cost = 0;
     base->build.health = 100;
 }
@@ -304,6 +755,61 @@ void initializeBase(Base *base, char type) {
 void destroyBase(Base *base) {
     initializeBase(base, ' ');
 }
+
+void salvarJogo() {
+    FILE* arquivo = fopen("savegame.txt", "w");
+
+    // Salvar informações relevantes do jogo no arquivo
+    fprintf(arquivo, "%d\n", currentPlayer);
+    fprintf(arquivo, "%d %d\n", castarCoinsPlayer1, castarCoinsPlayer2);
+
+    // Salvar o estado do tabuleiro
+    for (int i = 0; i < ROWS; i++) {
+        for (int j = 0; j < COLS; j++) {
+            fprintf(arquivo, "%c %d %c ", tabuleiro[i][j], tabuleiroOwners[i][j], tabuleiroUnits[i][j].type[0]);
+        }
+        fprintf(arquivo, "\n");
+    }
+
+    // Salvar informações sobre as bases e construções
+    fprintf(arquivo, "%d %d %d %d %d %d %d %d\n",
+        bases[0].build.cost, bases[0].build.health,
+        bases[1].build.cost, bases[1].build.health,
+        mina1.cost, mina1.health, mina2.cost, mina2.health);
+
+    fclose(arquivo);
+}
+
+//void carregarJogo() {
+//    FILE* arquivo = fopen("savegame.txt", "r");
+//
+//    if (arquivo == NULL) {
+//        printf("Nenhum jogo salvo encontrado.\n");
+//        return;
+//    }
+//
+//    // Carregar informações do jogo do arquivo
+//    fscanf(arquivo, "%d", &currentPlayer);
+//    fscanf(arquivo, "%d %d", &castarCoinsPlayer1, &castarCoinsPlayer2);
+//
+//    // Carregar o estado do tabuleiro
+//    for (int i = 0; i < ROWS; i++) {
+//        for (int j = 0; j < COLS; j++) {
+//            fscanf(arquivo, " %c %d %c ", &tabuleiro[i][j], &tabuleiroOwners[i][j], &tabuleiroUnits[i][j].type[0]);
+//        }
+//        fscanf(arquivo, "\n");
+//    }
+//
+//    // Carregar informações sobre as bases e construções
+//    fscanf(arquivo, "%d %d %d %d %d %d %d %d",
+//        &bases[0].build.cost, &bases[0].build.health,
+//        &bases[1].build.cost, &bases[1].build.health,
+//        &mina1.cost, &mina1.health, &mina2.cost, &mina2.health);
+//
+//    fclose(arquivo);
+//
+//    printf("Jogo carregado com sucesso!\n");
+//}
 
 int main() {
     menu();
@@ -314,8 +820,8 @@ int main() {
     case 1:
         system("cls");
         initializeBoard();
-        initializeBase(&basePlayer1, 'G');
-        initializeBase(&basePlayer2, 'M');
+        initializeBase(&bases[0], 'G');
+        initializeBase(&bases[1], 'M');
         printBoard();
 
         placeBase();
@@ -328,14 +834,14 @@ int main() {
         printBoard();
         switchPlayer();
 
-        while (true) {
+        while (bases[0].build.health > 0 && bases[1].build.health > 0) {
             playerTurn();
             switchPlayer();
             system("cls");
         }
         break;
     case 2:
-
+        carregarJogo();
         break;
     case 3:
 
